@@ -2,53 +2,18 @@ import { Autocomplete, Table, TableBody, TableContainer, TableHead, TableRow, Ta
 import React, { useEffect, useState } from "react";
 import { VOSviewerOnline } from "vosviewer-online";
 import landscape_data from "./data/openalex_2023nov.json";
+import { OpenAlexApi, OpenAlexApiCursor } from "./lib/OpenAlex"
+import { topicOAid, getTopics } from "./lib/OpenAlex-Topics"
 
-// OpenAlexApi generic query
-const OpenAlexApi = async (entities="works", query="") => {
-    const url = `https://api.openalex.org/${entities}?${query}`;
-    const response = await fetch(encodeURI(url));
-    const data = await response.json();
-    console.log(url);
-    return query.includes("group_by") ? data.group_by : data.results
-}
-
-// OpenAlexApi generic query using cursor pagination
-const OpenAlexApiCursor = async (entities="works", query="") => {
-    var cursor = "*";
-    var result = [];
-    while (cursor) {
-        const url = `https://api.openalex.org/${entities}?cursor=${cursor}&${query}`;
-        console.log(cursor, result.length);
-        const response = await fetch(encodeURI(url));
-        const data = await response.json();
-        result = result.concat(query.includes("group_by") ? data.group_by : data.results)
-        cursor = data.meta.next_cursor;
-    }
-    return result
-}
-
-// Convert from the Vosviewer topic id to the OpenAlex topic id
-const topicOAid = (vos_topic_id) =>
-    `https://openalex.org/T1${vos_topic_id.toString().padStart(4, "0")}`;
-
-// Get the topics from the OpenAlex API
-// Convert the resulting list to an Object with the topic id as key
-const getTopics = async (filter="") => {
-    const groupby = "group_by=primary_topic.id"
-    var topic_counts = await OpenAlexApiCursor("works", `${filter}&${groupby}`);
-    return topic_counts.reduce((topics, topic) => {
-        topics[topic.key] = topic;
-        return topics;
-    }, {});
-};
 
 // Enrich the data with the topics from the OpenAlex API
 const addTopics = (data, topics, alltopics) => {
     // create a new object, otherwise react will not register the state-change
     const combined_data = JSON.parse(JSON.stringify(data))
     combined_data.network?.items?.forEach((item) => {
-        const count = topics[topicOAid(item.id)]?.count || 0
-        const allcount = alltopics[topicOAid(item.id)]?.count
+        const id = topicOAid(item.id)
+        const count = topics[id]?.count || 0
+        const allcount = alltopics[id]?.count
         item.scores["OpenAlex Topic P"] = allcount > 0 ? count / allcount : 0 || 0
         item.weights["OpenAlex Topic Count"] = count || 0
     });
@@ -135,15 +100,14 @@ const App = () => {
 
     const [key, setKey] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [reload, setReload] = useState(false);
 
     // Collect the topics from the OpenaAlex API
     // Needs to be in a useEffect block because `fetch` is async
     useEffect(() => {
         const getTopicsAsync = async () => {
             setLoading(true)
-            const results = await getTopics()
-            setTopics(results);
-            setInstitutionTopics(results);
+            setTopics(await getTopics())
             setLoading(false)
         };
         getTopicsAsync();
@@ -154,7 +118,7 @@ const App = () => {
     useEffect(() => {
         const getTopicsAsync = async () => {
             setLoading(true)
-            setInstitutionTopics(await getTopics(`filter=authorships.institutions.id:${institution}`));
+            setInstitutionTopics(await getTopics(`filter=authorships.institutions.id:${institution}`))
             setLoading(false)
         };
         if (institution) {
@@ -168,12 +132,16 @@ const App = () => {
 
     // Make sure the VOSviewerOnline component is re-created when the data is updated
     useEffect(() => {
-        setKey((key) => key + 1);
-    }, [data]);
+        if (reload) {
+            setKey((key) => key + 1);
+        }
+        setReload(false)
+    }, [reload]);
 
     return (
         <>
             <VosViewer key={`vos${key}`} data={data}/>
+            <Button onClick={() => setReload(true)}>Reload</Button>
             <div style={{ margin: 10 }}>
                 <InstitutionsSelector institution={institution} setInstitution={setInstitution} />
             </div>
@@ -181,7 +149,7 @@ const App = () => {
                 <pre>{`${Object.keys(topics).length} topics loaded`}</pre>
                 <pre>{`${Object.keys(institutionTopics).length} institution topics loaded`}</pre>
             </div>
-            { loading ? <LinearProgress /> : <LinearProgress variant="determinate" value={Object.keys(topics).length > 0 ? 100 : 0} /> }
+            {loading ? <LinearProgress /> : null }
             <TopicsTable data={data} />
         </>
     );
