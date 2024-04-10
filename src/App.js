@@ -4,10 +4,9 @@ import { VOSviewerOnline } from "vosviewer-online";
 import landscape_data from "./data/openalex_2023nov.json";
 import { OpenAlexApiCursor } from "./lib/OpenAlex"
 import { reduce_list } from "./lib/utils";
-import InstitutionsSelector from "./components/InstitutionsSelector";
-import ApiQuerySelector from "./components/ApiQuerySelector";
 import TopicsTable from "./components/TopicsTable";
 import { Replay } from "@mui/icons-material";
+import Filters from "./components/Filters";
 
 
 // Enrich the data with the topics from the OpenAlex API
@@ -48,16 +47,17 @@ const App = () => {
     const [data, setData] = useState(landscape_data);
 
     const [allTopics, setAllTopics] = useState({});
-    const [queryparams, setQueryparams] = useState({})
     const [topics, setTopics] = useState({});
 
     const [key, setKey] = useState(0);
     const [loading, setLoading] = useState(false);
 
+    const [queryparams, setQueryparams] = useState({})
+
     useEffect(() => {
         const getTopicsAsync = async () => {
             setLoading(true)
-            setAllTopics(reduce_list(await OpenAlexApiCursor({entities: "works", groupby: "primary_topic.id"}), "key"))
+            setAllTopics(reduce_list(await OpenAlexApiCursor({path: "/works", group_by: "primary_topic.id"}), "key"))
             setTimeout(() => setLoading(false), 500)
         }
         if (Object.keys(allTopics).length === 0) {
@@ -66,9 +66,9 @@ const App = () => {
     }, [allTopics])
 
     useEffect(() => {
-        const getTopicsAsync = async (query) => {
+        const getTopicsAsync = async (queryparams) => {
             setLoading(true)
-            setTopics(reduce_list(await OpenAlexApiCursor({...query, groupby: "primary_topic.id"}), "key"))
+            setTopics(reduce_list(await OpenAlexApiCursor({...queryparams, group_by: "primary_topic.id"}), "key"))
             setTimeout(() => setLoading(false), 500)
         };
         getTopicsAsync(queryparams)
@@ -87,10 +87,8 @@ const App = () => {
         <>
             <VosViewer key={`vos${key}`} data={data} loading={loading}/>
             <Button color="error" onClick={VosViewerReRender} startIcon={<Replay />}>Reload</Button>
+            <Filters apply={setQueryparams} />
             <Stack spacing={2} sx={{ margin: 2 }} width={1000}>
-                <InstitutionsSelector setQueryparams={setQueryparams} />
-                <ApiQuerySelector setQueryparams={setQueryparams} />
-                <pre>{JSON.stringify(queryparams, null, 4)}</pre>
                 <pre>{`${Object.keys(topics).length}/${Object.keys(allTopics).length} topics loaded`}</pre>
                 <TopicsTable data={data} />
             </Stack>

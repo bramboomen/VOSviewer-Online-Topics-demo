@@ -1,6 +1,6 @@
-export const reduce_list = (list, key) => {
+export const reduce_list = (list, key, transform_key=(key => key)) => {
     return list.reduce((collector, item) => {
-        collector[item[key]] = item;
+        collector[transform_key(item[key])] = item;
         return collector;
     }, {});
 }
