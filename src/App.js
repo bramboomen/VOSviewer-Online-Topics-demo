@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { VOSviewerOnline } from "vosviewer-online";
 import landscape_data from "./data/openalex_2023nov.json";
 import { OpenAlexApiCursor } from "./lib/OpenAlex"
-import { reduce_list } from "./lib/utils";
+import { reduce_list, tryJSONParse } from "./lib/utils";
 import TopicsTable from "./components/TopicsTable";
 import { Replay } from "@mui/icons-material";
 import Filters from "./components/Filters";
@@ -15,7 +15,7 @@ export const topicOAid = (vos_topic_id) =>
 
 const addTopics = (data, topics, alltopics) => {
     // create a new object, otherwise react will not register the state-change
-    const combined_data = JSON.parse(JSON.stringify(data))
+    const combined_data = tryJSONParse(JSON.stringify(data))
     combined_data.network?.items?.forEach((item) => {
         const id = topicOAid(item.id)
         const count = topics[id]?.count || 0
@@ -57,7 +57,14 @@ const App = () => {
     useEffect(() => {
         const getTopicsAsync = async () => {
             setLoading(true)
-            setAllTopics(reduce_list(await OpenAlexApiCursor({path: "/works", group_by: "primary_topic.id"}), "key"))
+            const localAllTopics = tryJSONParse(localStorage.getItem('allTopics'))
+            if (Object.keys(localAllTopics).length > 0) {
+                setAllTopics(localAllTopics)
+            } else {
+                const remoteAllTopics = reduce_list(await OpenAlexApiCursor({path: "/works", group_by: "primary_topic.id"}), "key")
+                setAllTopics(remoteAllTopics)
+                localStorage.setItem('allTopics', JSON.stringify(remoteAllTopics))
+            }
             setTimeout(() => setLoading(false), 500)
         }
         if (Object.keys(allTopics).length === 0) {

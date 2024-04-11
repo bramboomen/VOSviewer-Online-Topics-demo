@@ -5,6 +5,7 @@ import ApiQueryInput from "./ApiQueryInput";
 import { constructUrl, validateQueryparams } from "../lib/OpenAlex";
 import WorkTypeFilter from "./WorkTypeFilter";
 import WorkPeriodFilter from "./WorkPeriodFilter";
+import MailToInput from "./MailTo";
 
 const FilterParams = ({queryparams, setQueryparams, controller, setController}) => {
     const thiscontroller = "filterparams"
@@ -55,6 +56,7 @@ const Filters = ({apply}) => {
 
     return (
         <Stack spacing={5} sx={{ margin: 2 }} width={1000}>
+            <MailToInput />
             <FilterParams queryparams={queryparams} setQueryparams={setQueryparams} controller={controller} setController={setController}/>
             <ApiQueryInput queryparams={queryparams} setQueryparams={setQueryparams} controller={controller} setController={setController}/>
             <pre>{JSON.stringify(queryparams, null, 4)}</pre>
